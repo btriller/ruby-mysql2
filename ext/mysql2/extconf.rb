@@ -104,11 +104,44 @@ end
   asplode h unless have_header h
 end
 
-# These gcc style flags are also supported by clang and xcode compilers,
-# so we'll use a does-it-work test instead of an is-it-gcc test.
-gcc_flags = ' -Wall -funroll-loops'
-if try_link('int main() {return 0;}', gcc_flags)
-  $CFLAGS << gcc_flags
+mysql_h = [prefix, 'mysql.h'].compact.join('/')
+have_struct_member('MYSQL', 'net.vio', mysql_h)
+have_struct_member('MYSQL', 'net.pvio', mysql_h)
+
+# These constants are actually enums, so they cannot be detected by #ifdef in C code.
+have_const('MYSQL_ENABLE_CLEARTEXT_PLUGIN', mysql_h)
+have_const('SERVER_QUERY_NO_GOOD_INDEX_USED', mysql_h)
+have_const('SERVER_QUERY_NO_INDEX_USED', mysql_h)
+have_const('SERVER_QUERY_WAS_SLOW', mysql_h)
+
+# my_bool is replaced by C99 bool in MySQL 8.0, but we want
+# to retain compatibility with the typedef in earlier MySQLs.
+have_type('my_bool', mysql_h)
+
+# This is our wishlist. We use whichever flags work on the host.
+# -Wall and -Wextra are included by default.
+wishlist = [
+  '-Weverything',
+  '-Wno-bad-function-cast', # rb_thread_call_without_gvl returns void * that we cast to VALUE
+  '-Wno-conditional-uninitialized', # false positive in client.c
+  '-Wno-covered-switch-default', # result.c -- enum_field_types (when fully covered, e.g. mysql 5.5)
+  '-Wno-declaration-after-statement', # GET_CLIENT followed by GET_STATEMENT in statement.c
+  '-Wno-disabled-macro-expansion', # rubby :(
+  '-Wno-documentation-unknown-command', # rubby :(
+  '-Wno-missing-field-initializers', # gperf generates bad code
+  '-Wno-missing-variable-declarations', # missing symbols due to ruby native ext initialization
+  '-Wno-padded', # mysql :(
+  '-Wno-reserved-id-macro', # rubby :(
+  '-Wno-sign-conversion', # gperf generates bad code
+  '-Wno-static-in-inline', # gperf generates bad code
+  '-Wno-switch-enum', # result.c -- enum_field_types (when not fully covered, e.g. mysql 5.6+)
+  '-Wno-undef', # rubinius :(
+  '-Wno-unreachable-code', # rubby :(
+  '-Wno-used-but-marked-unused', # rubby :(
+]
+
+usable_flags = wishlist.select do |flag|
+  try_link('int main() {return 0;}',  "-Werror #{flag}")
 end
 
 if RUBY_PLATFORM =~ /mswin|mingw/
