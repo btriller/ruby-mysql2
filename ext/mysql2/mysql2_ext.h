@@ -25,6 +25,10 @@ typedef unsigned int    uint;
 #include <mysql/mysqld_error.h>
 #endif
 
+#ifdef CLIENT_MYSQL
+#define CLIENT_LONG_PASSWORD CLIENT_MYSQL
+#endif
+
 #ifdef HAVE_RUBY_ENCODING_H
 #include <ruby/encoding.h>
 #endif
